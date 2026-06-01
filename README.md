@@ -1,0 +1,2 @@
+Only for Windows users. With this simple app you can install bunch of apk files to your android smart phone.  It uses an adb command line in background to install apk(s) files on smartphone. Incompatible apks will be skipped. To create this app i used a Visual Studio 2013 winforms with VB.NET lang.  
+<img width="443" height="365" alt="apk-installer" src="https://github.com/user-attachments/assets/1dd2589e-b02e-4a04-a80b-30305e3cbda6" />
