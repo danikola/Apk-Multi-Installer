@@ -1,0 +1,139 @@
+﻿Imports System.Diagnostics
+Public Class Form1
+
+    Private Sub ButtonOpen_Click(sender As Object, e As EventArgs) Handles ButtonOpen.Click
+        If OpenApkFileDialog.ShowDialog = Windows.Forms.DialogResult.Cancel Then
+            Exit Sub
+        End If
+        If ListBox1.Items.Count <> 0 Then
+            ListBox1.Items.Clear()
+        End If
+        For Each filePath As String In OpenApkFileDialog.FileNames
+            ListBox1.Items.Add(filePath)
+        Next
+    End Sub
+
+    Private Sub RemoveItemsToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles RemoveItemsToolStripMenuItem.Click
+        If ListBox1.SelectedIndex <> -1 And ListBox1.SelectedItems.Count = 1 Then
+            ListBox1.Items.RemoveAt(ListBox1.SelectedIndex)
+        ElseIf ListBox1.SelectedIndex <> -1 And ListBox1.SelectedItems.Count > 1 Then
+            For i As Integer = ListBox1.SelectedIndices.Count - 1 To 0 Step -1
+                ListBox1.Items.RemoveAt(ListBox1.SelectedIndices(i))
+            Next
+        End If
+    End Sub
+
+    Private Sub ButtonInstall_Click(sender As Object, e As EventArgs) Handles ButtonInstall.Click
+        Dim myCMDResult As String = ""
+        Dim i As Integer, listBoxItemsCount As Integer
+        Dim myProcess As New Process
+
+        If ListBox1.Items.Count = 0 Then
+            MsgBox("Apk list is empty!", MsgBoxStyle.Information)
+            Exit Sub
+        ElseIf Split(txtConsoleResult.Text, vbCrLf).Length > 1 Then
+            If Split(txtConsoleResult.Text, vbCrLf)(1) = "" Then
+                MsgBox("Warning! No connected devices", MsgBoxStyle.Exclamation)
+                Exit Sub
+            End If
+        End If
+        txtConsoleResult.Visible = True
+        ProgressBarApkInstaller.Visible = True
+        LabelProgress.Visible = True
+        listBoxItemsCount = ListBox1.Items.Count
+        i = 0
+        Try
+            For Each item In ListBox1.Items
+                i += 1
+                myProcess.StartInfo.FileName = "cmd.exe"
+                myProcess.StartInfo.Arguments = "/c chcp 65001 > nul && adb install -g " & Chr(34) & item.ToString & Chr(34)
+                myProcess.StartInfo.UseShellExecute = False
+                myProcess.StartInfo.RedirectStandardOutput = True
+                myProcess.StartInfo.StandardOutputEncoding = System.Text.Encoding.UTF8
+                myProcess.StartInfo.CreateNoWindow = True
+                myProcess.Start()
+                myCMDResult = myProcess.StandardOutput.ReadToEnd
+                myProcess.WaitForExit()
+                If Not Split(myCMDResult, vbCrLf)(1).ToString.Contains("Success") Then
+                    'txtConsoleResult.Text += item.ToString & vbCrLf & myCMDResult & "FAIL" & vbCrLf & vbCrLf
+                    txtConsoleResult.AppendText(item.ToString & vbCrLf & myCMDResult & "FAIL" & vbCrLf & vbCrLf)
+                Else
+                    'txtConsoleResult.Text += item.ToString & vbCrLf & myCMDResult & vbCrLf
+                    txtConsoleResult.AppendText(item.ToString & vbCrLf & myCMDResult & vbCrLf)
+                End If
+                Application.DoEvents()
+                ProgressBarApkInstaller.Value = Math.Truncate((i / listBoxItemsCount) * 100)
+                LabelProgress.Text = ProgressBarApkInstaller.Value & "%"
+            Next item
+            'ProgressBarApkInstaller.Visible = False
+            'LabelProgress.Visible = False
+            MsgBox("Done!", MsgBoxStyle.Information)
+        Catch ex As Exception
+            MsgBox(ex.Message & vbCrLf & "Такая ошибка возникает когда телефон подключен в режиме USB-модема, переключите телефон в режим без передачи данных и попробуйте еще раз!", MsgBoxStyle.Critical)
+        End Try
+    End Sub
+
+    Private Sub HideToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles HideToolStripMenuItem.Click
+        txtConsoleResult.Text = ""
+        txtConsoleResult.Visible = False
+    End Sub
+
+    Private Sub ButtonCheckADB_Click(sender As Object, e As EventArgs) Handles ButtonCheckADB.Click
+        Dim myProcess As New Process
+        Dim myCMDResult As String = ""
+        txtConsoleResult.Visible = True
+        txtConsoleResult.Text = ""
+        myProcess.StartInfo.FileName = "cmd.exe"
+        myProcess.StartInfo.Arguments = "/c chcp 65001 > nul && adb devices"
+        myProcess.StartInfo.UseShellExecute = False
+        myProcess.StartInfo.RedirectStandardOutput = True
+        myProcess.StartInfo.StandardOutputEncoding = System.Text.Encoding.UTF8
+        myProcess.StartInfo.CreateNoWindow = True
+        myProcess.Start()
+        myCMDResult = myProcess.StandardOutput.ReadToEnd
+        myProcess.WaitForExit()
+        txtConsoleResult.Text = myCMDResult
+    End Sub
+
+    Private Sub ListBox1_KeyDown(sender As Object, e As KeyEventArgs) Handles ListBox1.KeyDown
+        If e.KeyCode = Keys.Delete Then
+            If ListBox1.SelectedIndex <> -1 And ListBox1.SelectedItems.Count = 1 Then
+                ListBox1.Items.RemoveAt(ListBox1.SelectedIndex)
+            ElseIf ListBox1.SelectedIndex <> -1 And ListBox1.SelectedItems.Count > 1 Then
+                For i As Integer = ListBox1.SelectedIndices.Count - 1 To 0 Step -1
+                    ListBox1.Items.RemoveAt(ListBox1.SelectedIndices(i))
+                Next
+            End If
+        End If
+    End Sub
+
+    Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+        Dim s As String
+        s = "0. На телефоне в настройках ""Google Play"" отключаем ""Play Защиту""" & vbCrLf &
+            "1. На телефоне в настройках ""Для разработчиков"" включаем ""Отладка по USB""" & vbCrLf &
+            "2. Подключаем телефон в режиме ""Без передачи данных или Передача файлов""" & vbCrLf &
+            "3. Check ADB — Проверяем подключен ли телефон к ПК в режиме отладки по ADB или можно через командную строку выполнив команду: adb devices" & vbCrLf &
+            "4. Если все ОК — наш девайс отображается типа: XXXDDDXXXX   device. Жмём Install apk(s) — будут установлены все файлы, которые есть в списке. Несовместимые приложения будут пропущены." & vbCrLf & vbCrLf &
+            "*Данная мини программа рассчитана на продвинутых пользователей, которым не нужно объяснять об предварительной установке ADB драйверов или как отобразить настроки для разработчиков и.т.д..."
+        MsgBox(s, MsgBoxStyle.Information, Title:="Help")
+    End Sub
+End Class
+
+'Works. Can detect USB stick connection change
+'Protected Overrides Sub WndProc(ByRef m As Message)
+'    Const WM_DEVICECHANGE As Integer = &H219
+'    Const DBT_DEVICEARRIVAL As Integer = &H8000
+'    Const DBT_DEVICEREMOVECOMPLETE As Integer = &H8004
+
+'    If m.Msg = WM_DEVICECHANGE Then
+'        Select Case m.WParam.ToInt32()
+'            Case DBT_DEVICEARRIVAL
+'                ' A device was plugged in
+'                MsgBox("USB Device+ Detected+")
+'            Case DBT_DEVICEREMOVECOMPLETE
+'                ' A device was unplugged
+'                MsgBox("USB Device- Detected-")
+'        End Select
+'    End If
+'    MyBase.WndProc(m)
+'End Sub
